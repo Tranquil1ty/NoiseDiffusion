@@ -1,0 +1,3 @@
+# BEYOND LINEAR SPHERICAL INTERPOLATION:NOISE CORRECTION FOR IMAGE INTERPOLATION WITH DIFFUSION MODELS
+See installation instructions in the original ControlNet repository.
+
