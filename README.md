@@ -1,4 +1,4 @@
-# NOISEDIFFUSION:CORRECTING NOISE FOR IMAGE INTERPOLATION WITH DIFFUSION MODELS BEYOND SPHERICAL LINEAR INTERPOLATION
+# Noisediffusion: Correcting Noise For Image Interpolation With Diffusion Models Beyond Spherical Linear Interpolation
 
  [Paper](https://openreview.net/forum?id=6O3Q6AFUTu&referrer=%5Bthe%20profile%20of%20PengFei%20Zheng%5D(%2Fprofile%3Fid%3D~PengFei_Zheng2))
 
