@@ -144,7 +144,8 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
                  freeze=True, layer="last"):
         super().__init__()
         assert layer in self.LAYERS
-        model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'), pretrained=version)
+        #model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'), pretrained=version)
+        model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'), pretrained="/data2/home/pengfei/Lab/NoiseDiffusion/controlnet/openai/clip-vit-large-patch14/open_clip_pytorch_model.bin")
         del model.visual
         self.model = model
 

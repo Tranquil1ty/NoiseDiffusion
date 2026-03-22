@@ -1,0 +1,3 @@
+conda activate control_back
+
+Lab/NoiseDiffusion/controlnet/ldm/modules/encoders/modules.py改为 

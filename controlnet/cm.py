@@ -77,7 +77,7 @@ class ContextManager:
         self.model.load_state_dict(load_state_dict('./controlnet/models/openpose-sd21.ckpt', location='cuda'))
 
 
-    def interpolate_new(self, img1, img2,  scale_control=1.5, prompt=None, n_prompt=None, min_steps=.3, max_steps=.55, ddim_steps=250,  guide_scale=7.5,  optimize_cond=0,  cond_lr=1e-4, bias=0, ddim_eta=0, out_dir='blend'):
+    def interpolate_new(self, img1, img2,  scale_control=1.5, prompt=None, n_prompt=None, min_steps=.3, max_steps=.55, ddim_steps=250,  guide_scale=7.5,  optimize_cond=0,  cond_lr=1e-4, bias=0, ddim_eta=0, out_dir='blend', interpolation_type='noisediffusion'):
         torch.manual_seed(49)
         if min_steps < 1:
             min_steps = int(ddim_steps * min_steps)
@@ -111,16 +111,13 @@ class ContextManager:
         right_image= ldm.get_first_stage_encoding(ldm.encode_first_stage(img2.float() / 127.5 - 1.0))
 
         
-        kwargs = dict(cond_lr=cond_lr, cond_steps=optimize_cond, prompt=prompt, n_prompt=n_prompt, ddim_steps=ddim_steps, guide_scale=guide_scale, bias=bias, ddim_eta=ddim_eta, scale_control=scale_control)
+        kwargs = dict(cond_lr=cond_lr, cond_steps=optimize_cond, prompt=prompt, n_prompt=n_prompt, ddim_steps=ddim_steps, guide_scale=guide_scale, bias=bias, ddim_eta=ddim_eta, scale_control=scale_control, interpolation_type=interpolation_type)
         yaml.dump(kwargs, open(f'{out_dir}/args.yaml', 'w'))
         
         cur_step=140
         t = timesteps[cur_step]
         
-        
-        interpolation_type="noisediffusion"
-        
-        if interpolation_type!= 1:
+        if interpolation_type not in ("noise",):
             l1, _ = self.ddim_sampler.encode(left_image, cond, cur_step, 
             use_original_steps=False, return_intermediates=None,
             unconditional_guidance_scale=1, unconditional_conditioning=un_cond)
