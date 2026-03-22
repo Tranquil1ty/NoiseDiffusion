@@ -1,3 +1,9 @@
 conda activate control_back
 
 Lab/NoiseDiffusion/controlnet/ldm/modules/encoders/modules.py改为 
+
+
+
+
+cd /data2/home/pengfei/Graduate_experiment/NoiseDiffusion
+python controlnet/run_all.py --interpolation noisediffusion  --ddim_steps 140 --gpu  2

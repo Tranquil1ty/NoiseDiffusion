@@ -72,9 +72,9 @@ class ContextManager:
         self.filters = {}
         self.mode = None
         self.version = version
-        self.model = create_model('./controlnet/models/cldm_v21.yaml').cuda()
+        self.model = create_model('/data2/home/pengfei/Lab/NoiseDiffusion/controlnet/models/cldm_v21.yaml').cuda()
         self.ddim_sampler = DDIMSampler(self.model)
-        self.model.load_state_dict(load_state_dict('./controlnet/models/openpose-sd21.ckpt', location='cuda'))
+        self.model.load_state_dict(load_state_dict('/data2/home/pengfei/Lab/NoiseDiffusion/controlnet/models/openpose-sd21.ckpt', location='cuda'))
 
 
     def interpolate_new(self, img1, img2,  scale_control=1.5, prompt=None, n_prompt=None, min_steps=.3, max_steps=.55, ddim_steps=250,  guide_scale=7.5,  optimize_cond=0,  cond_lr=1e-4, bias=0, ddim_eta=0, out_dir='blend', interpolation_type='noisediffusion'):

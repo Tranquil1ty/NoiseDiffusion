@@ -22,6 +22,12 @@ import os
 import argparse
 import traceback
 
+# 必须在 import torch/cm 之前设置，否则 CUDA 已初始化后设置无效
+_pre_parser = argparse.ArgumentParser(add_help=False)
+_pre_parser.add_argument('--gpu', type=str, default='0')
+_pre_args, _ = _pre_parser.parse_known_args()
+os.environ['CUDA_VISIBLE_DEVICES'] = _pre_args.gpu
+
 osp = os.path
 sys.path.append(osp.dirname(osp.abspath(__file__)))
 
