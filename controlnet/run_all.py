@@ -72,7 +72,7 @@ SAMPLES = {
     'tree':       ('tree1.png',       'tree2.png',       'a photo of tree'),
 }
 
-ALL_METHODS = ['noise', 'slerp', 'noisediffusion']
+ALL_METHODS = ['noise', 'slerp', 'noisediffusion', 'noisediffusion_noclip', 'noisediffusion_gamma0']
 
 IMG_DIR = 'controlnet/sample_imgs'
 IMG_SIZE = (768, 768)
@@ -105,8 +105,9 @@ def parse_args():
         help='使用的 GPU 编号（默认 0）'
     )
     parser.add_argument(
-        '--categories', nargs='+', default=None,
-        help='只运行指定类别，例如 --categories apple cat bird；不指定则运行全部'
+        '--categories', nargs='+',
+        default=['aircraft', 'car', 'tree', 'spider', 'pumpkin', 'lion_tiger', 'cup'],
+        help='运行的类别列表（默认 7 个：aircraft car tree spider pumpkin lion_tiger cup）'
     )
     return parser.parse_args()
 
@@ -132,7 +133,7 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
     methods = resolve_methods(args.interpolation)
-    categories = args.categories if args.categories else list(SAMPLES.keys())
+    categories = args.categories if args.categories is not None else list(SAMPLES.keys())
 
     # 验证类别是否存在
     unknown = [c for c in categories if c not in SAMPLES]
@@ -190,6 +191,29 @@ def main():
     print(f"全部完成。成功 {total - len(failed)}/{total} 个任务。")
     if failed:
         print(f"失败列表：{failed}")
+
+    _run_evaluation(args, methods, categories)
+
+
+def _run_evaluation(args, methods, categories):
+    """生成完成后自动调用 evaluate.py 计算 TOPIQ / PDV。"""
+    import subprocess
+    controlnet_dir = osp.dirname(osp.abspath(__file__))
+    graduate_dir = osp.dirname(osp.dirname(controlnet_dir))
+    eval_script = osp.join(graduate_dir, 'evaluate_latent', 'evaluate.py')
+    if not osp.isfile(eval_script):
+        print(f"\n[警告] 未找到评测脚本：{eval_script}，跳过自动评测。")
+        return
+    cmd = [
+        sys.executable, eval_script,
+        '--results_dir', osp.abspath(args.output_dir),
+        '--methods', *methods,
+        '--categories', *categories,
+    ]
+    print(f"\n{'='*60}")
+    print("开始自动评测 TOPIQ / PDV ...")
+    print(f"{'='*60}")
+    subprocess.run(cmd, check=False)
 
 
 if __name__ == '__main__':

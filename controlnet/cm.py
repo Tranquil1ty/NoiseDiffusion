@@ -140,9 +140,12 @@ class ContextManager:
             if interpolation_type=="slerp":       
                 noisy_latent = slerp(l1, l2, latent_frac)
 
-            if interpolation_type=="noisediffusion":
+            if interpolation_type in ("noisediffusion", "noisediffusion_noclip", "noisediffusion_gamma0"):
                 coef=2.0
-                gamma=0
+                if interpolation_type == "noisediffusion_gamma0":
+                    gamma = 0
+                else:
+                    gamma = math.sqrt(0.1)
                 alpha=math.cos(math.radians(latent_frac*90))
                 beta=math.sin(math.radians(latent_frac*90))
                 l=alpha/beta
@@ -153,12 +156,14 @@ class ContextManager:
                 mu=1.2*alpha/(alpha+beta)
                 nu=1.2*beta/(alpha+beta)
                 
-                l1=torch.clip(l1,-coef,coef)  
-                l2=torch.clip(l2,-coef,coef)   
+                if interpolation_type != "noisediffusion_noclip":
+                    l1=torch.clip(l1,-coef,coef)
+                    l2=torch.clip(l2,-coef,coef)
                 
                 noisy_latent= alpha*l1+beta*l2+(mu-alpha)*ldm.sqrt_alphas_cumprod[t] * left_image+(nu-beta)*ldm.sqrt_alphas_cumprod[t] * right_image+gamma*noise*ldm.sqrt_one_minus_alphas_cumprod[t]
                 
-                noisy_latent=torch.clip(noisy_latent,-coef,coef)    
+                if interpolation_type != "noisediffusion_noclip":
+                    noisy_latent=torch.clip(noisy_latent,-coef,coef)
             
                                
             samples= self.ddim_sampler.decode(noisy_latent, cond, cur_step, # cur_step-1 / new_step-1
