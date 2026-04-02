@@ -1,17 +1,21 @@
 """
 批量插值启动脚本
 用法示例：
-  # 用 noisediffusion 方法跑所有类别
+  # 用 noisediffusion 方法跑所有类别（单 GPU）
   python controlnet/run_all.py --interpolation noisediffusion
 
   # 用 noise 和 slerp 方法，自定义 ddim_steps 和输出目录
   python controlnet/run_all.py --interpolation noise slerp --ddim_steps 150 --output_dir results/exp1
 
-  # 跑全部三种方法
+  # 跑全部五种方法
   python controlnet/run_all.py --interpolation all
 
   # 只跑指定类别
   python controlnet/run_all.py --interpolation noisediffusion --categories apple cat bird
+
+  # 使用多个 GPU 并行（类别轮流分配）
+  python controlnet/run_all.py --interpolation all --gpus 0 1
+  python controlnet/run_all.py --interpolation all --gpus 0 1 2 3
 
 输出目录结构：
   {output_dir}/{interpolation_type}/{category}/001.png ... 009.png
@@ -23,10 +27,11 @@ import argparse
 import traceback
 
 # 必须在 import torch/cm 之前设置，否则 CUDA 已初始化后设置无效
+# 多 GPU 模式下主进程只用第一张卡（子进程各自设置自己的卡）
 _pre_parser = argparse.ArgumentParser(add_help=False)
-_pre_parser.add_argument('--gpu', type=str, default='0')
+_pre_parser.add_argument('--gpus', nargs='+', default=['0'])
 _pre_args, _ = _pre_parser.parse_known_args()
-os.environ['CUDA_VISIBLE_DEVICES'] = _pre_args.gpu
+os.environ['CUDA_VISIBLE_DEVICES'] = _pre_args.gpus[0]
 
 osp = os.path
 sys.path.append(osp.dirname(osp.abspath(__file__)))
@@ -101,8 +106,12 @@ def parse_args():
         help='CFG 引导强度（默认 10.0）'
     )
     parser.add_argument(
-        '--gpu', type=str, default='0',
-        help='使用的 GPU 编号（默认 0）'
+        '--gpus', nargs='+', default=['0'], metavar='GPU',
+        help='使用的 GPU 编号，支持多个（例如 --gpus 0 1）；多 GPU 时各类别轮流分配并行运行'
+    )
+    parser.add_argument(
+        '--no_eval', action='store_true',
+        help='跳过生成后的自动评测（多 GPU 子进程内部使用）'
     )
     parser.add_argument(
         '--categories', nargs='+',
@@ -129,8 +138,7 @@ def resolve_methods(interpolation_args):
 
 def main():
     args = parse_args()
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    gpus = args.gpus
 
     methods = resolve_methods(args.interpolation)
     categories = args.categories if args.categories is not None else list(SAMPLES.keys())
@@ -144,10 +152,16 @@ def main():
     print(f"类别数量: {len(categories)}")
     print(f"ddim_steps: {args.ddim_steps}")
     print(f"输出目录: {args.output_dir}")
-    print(f"GPU: {args.gpu}")
+    print(f"GPU: {gpus}")
     print("=" * 60)
 
-    # 加载模型（只加载一次）
+    # 多 GPU：分发子进程
+    if len(gpus) > 1:
+        _dispatch_multi_gpu(args, gpus, methods, categories)
+        return
+
+    # 单 GPU：原有逻辑，模型只加载一次
+    os.environ['CUDA_VISIBLE_DEVICES'] = gpus[0]
     print("正在加载模型...")
     CM = cm.ContextManager()
     print("模型加载完成。\n")
@@ -163,15 +177,12 @@ def main():
             img1_path = osp.join(IMG_DIR, img1_name)
             img2_path = osp.join(IMG_DIR, img2_name)
 
-            # 输出到 {output_dir}/{method}/{category}/
             out_dir = osp.join(args.output_dir, method, category)
-
-            print(f"[{done}/{total}] {method}/{category}  ->  {out_dir}")
+            print(f"[GPU {gpus[0]}][{done}/{total}] {method}/{category}  ->  {out_dir}")
 
             try:
                 img1 = Image.open(img1_path).resize(IMG_SIZE)
                 img2 = Image.open(img2_path).resize(IMG_SIZE)
-
                 CM.interpolate_new(
                     img1, img2,
                     prompt=prompt,
@@ -192,7 +203,46 @@ def main():
     if failed:
         print(f"失败列表：{failed}")
 
-    _run_evaluation(args, methods, categories)
+    if not args.no_eval:
+        _run_evaluation(args, methods, categories)
+
+
+def _dispatch_multi_gpu(args, gpus, methods, categories):
+    """多 GPU 并行：将类别轮流分配给各 GPU，各自启动独立子进程同时运行。"""
+    import subprocess as sp
+
+    # 按类别轮流分配（round-robin）
+    gpu_cats = [[] for _ in gpus]
+    for i, cat in enumerate(categories):
+        gpu_cats[i % len(gpus)].append(cat)
+
+    procs = []
+    for gpu_id, cats in zip(gpus, gpu_cats):
+        if not cats:
+            continue
+        cmd = [
+            sys.executable, osp.abspath(__file__),
+            '--gpus', gpu_id,
+            '--interpolation', *methods,
+            '--ddim_steps', str(args.ddim_steps),
+            '--output_dir', args.output_dir,
+            '--guide_scale', str(args.guide_scale),
+            '--categories', *cats,
+            '--no_eval',  # 子进程不做评测，由主进程统一评测
+        ]
+        print(f"[GPU {gpu_id}] 分配类别: {cats}")
+        p = sp.Popen(cmd)
+        procs.append(p)
+
+    print(f"\n已启动 {len(procs)} 个并行子进程，等待全部完成...")
+    print("=" * 60)
+    for p in procs:
+        p.wait()
+
+    print("=" * 60)
+    print("所有子进程已完成。")
+    if not args.no_eval:
+        _run_evaluation(args, methods, categories)
 
 
 def _run_evaluation(args, methods, categories):
