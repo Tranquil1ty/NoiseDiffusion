@@ -114,9 +114,8 @@ def parse_args():
         help='跳过生成后的自动评测（多 GPU 子进程内部使用）'
     )
     parser.add_argument(
-        '--categories', nargs='+',
-        default=['aircraft', 'car', 'tree', 'spider', 'pumpkin', 'lion_tiger', 'cup'],
-        help='运行的类别列表（默认 7 个：aircraft car tree spider pumpkin lion_tiger cup）'
+        '--categories', nargs='+', default=None,
+        help='运行的类别列表；不指定则使用 SAMPLES 中的全部类别'
     )
     return parser.parse_args()
 

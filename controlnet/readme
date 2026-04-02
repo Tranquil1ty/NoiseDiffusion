@@ -9,4 +9,10 @@ cd /data2/home/pengfei/Graduate_experiment/NoiseDiffusion
 python controlnet/run_all.py --interpolation noisediffusion  --ddim_steps 200 --gpu  2
 
 
-python controlnet/run_all.py --interpolation all  --gpu 2
+python controlnet/run_all.py --interpolation all  --gpus 1 2 3 4 5 6 7
+
+
+python /data2/home/pengfei/Graduate_experiment/evaluate_latent/evaluate.py \
+  --results_dir /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/sample_results \
+  --methods noise slerp noisediffusion noisediffusion_noclip noisediffusion_gamma0 \
+  --categories aircraft car tree spider pumpkin lion_tiger cup
