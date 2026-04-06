@@ -20,4 +20,7 @@ python /data2/home/pengfei/Graduate_experiment/evaluate_latent/evaluate.py \
 
 python controlnet/run_all.py    --gpus 1 2 3 4 5 6 7
 
-  python controlnet/run_all.py --interpolation all  --gpus 1 2 3 4 5 6 7
+python controlnet/run_all.py --interpolation all  --gpus 1 2 3 4 5 6 7
+
+
+python calc_summary.py  aircraft car tree spider pumpkin lion_tiger cup
