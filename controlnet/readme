@@ -30,6 +30,12 @@ python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_pa
 
 
 # ──────────────────────────────────────────────
+# 三方法全类：noise + slerp + noisediffusion(nd_c2.8_gsqrt0.1)，默认 26 类，输出 sample_results/noise_slerp_nd28
+# ──────────────────────────────────────────────
+python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --preset quick --gpus 0 1 2 3
+
+
+# ──────────────────────────────────────────────
 # 计算指定类别的均值
 # ──────────────────────────────────────────────
 python calc_summary.py  aircraft car tree spider pumpkin lion_tiger cup

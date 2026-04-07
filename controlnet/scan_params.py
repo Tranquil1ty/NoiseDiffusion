@@ -22,6 +22,9 @@ NoiseDiffusion 参数扫描脚本
 
   # 跳过已有结果（断点续跑）
   python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --gpus 0 1 --skip_existing
+
+  # 全部 26 类：只跑 noise、slerp、noisediffusion 的 nd_c2.8_gsqrt0.1（评测 TOPIQ/PDV）
+  python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --preset quick --gpus 0 1 2
 """
 
 import sys
@@ -124,19 +127,36 @@ def build_method_configs():
     return configs
 
 
+def build_quick_configs():
+    """noise + slerp + 单一 noisediffusion：c=2.8, gamma=sqrt(0.1) -> nd_c2.8_gsqrt0.1"""
+    return [
+        ("noise", "noise", None, None),
+        ("slerp", "slerp", None, None),
+        ("nd_c2.8_gsqrt0.1", "noisediffusion", 2.8, math.sqrt(0.1)),
+    ]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='NoiseDiffusion 参数扫描')
+    parser.add_argument(
+        '--preset', choices=('full', 'quick'), default='full',
+        help=(
+            'full=全参数网格+noise/slerp（默认 7 类）；'
+            'quick=全部类别跑 noise、slerp、noisediffusion(nd_c2.8_gsqrt0.1) 共 3 种方法'
+        ),
+    )
     parser.add_argument('--gpus', nargs='+', default=['0'],
                         help='GPU 编号，多个则并行（例如 --gpus 0 1 2 3）')
     parser.add_argument('--ddim_steps', type=int, default=200,
                         help='DDIM 采样步数（默认 200）')
-    parser.add_argument('--output_dir', type=str,
-                        default=osp.join(SCRIPT_DIR, 'sample_results', 'scan'),
-                        help='结果根目录')
+    parser.add_argument('--output_dir', type=str, default=None,
+                        help='结果根目录（默认依 preset 而定）')
     parser.add_argument('--guide_scale', type=float, default=10.0,
                         help='CFG 引导强度（默认 10.0）')
-    parser.add_argument('--categories', nargs='+', default=DEFAULT_CATEGORIES,
-                        help='类别列表（默认 7 个指定类别）')
+    parser.add_argument(
+        '--categories', nargs='*', default=None,
+        help='类别列表；不指定时：full 默认 7 类，quick 默认全部 26 类',
+    )
     parser.add_argument('--no_eval', action='store_true',
                         help='跳过生成后的自动评测')
     parser.add_argument('--skip_existing', action='store_true',
@@ -146,20 +166,34 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.output_dir is None:
+        sub = 'noise_slerp_nd28' if args.preset == 'quick' else 'scan'
+        args.output_dir = osp.join(SCRIPT_DIR, 'sample_results', sub)
     args.output_dir = osp.abspath(args.output_dir)
     gpus = args.gpus
-    categories = args.categories
+
+    if not args.categories:
+        categories = list(SAMPLES.keys()) if args.preset == 'quick' else DEFAULT_CATEGORIES
+    else:
+        categories = args.categories
 
     unknown = [c for c in categories if c not in SAMPLES]
     if unknown:
         raise ValueError(f"未知类别: {unknown}，可选: {list(SAMPLES.keys())}")
 
-    method_configs = build_method_configs()
-    nd_count = len(method_configs) - 2
+    if args.preset == 'quick':
+        method_configs = build_quick_configs()
+    else:
+        method_configs = build_method_configs()
+    nd_count = max(0, len(method_configs) - 2)
 
-    print(f"方法配置: {len(method_configs)} 种 (noise + slerp + {nd_count} 种 noisediffusion)")
+    if args.preset == 'quick':
+        print(f"方法配置: {len(method_configs)} 种 (noise + slerp + nd_c2.8_gsqrt0.1)")
+    else:
+        print(f"方法配置: {len(method_configs)} 种 (noise + slerp + {nd_count} 种 noisediffusion)")
     print(f"类别: {categories} ({len(categories)} 个)")
     print(f"总任务数: {len(method_configs) * len(categories)}")
+    print(f"preset: {args.preset}")
     print(f"GPU: {gpus}")
     print(f"输出目录: {args.output_dir}")
     if args.skip_existing:
@@ -242,6 +276,7 @@ def _dispatch_multi_gpu(args, gpus, categories):
             continue
         cmd = [
             sys.executable, osp.abspath(__file__),
+            '--preset', args.preset,
             '--gpus', gpu_id,
             '--ddim_steps', str(args.ddim_steps),
             '--output_dir', args.output_dir,
