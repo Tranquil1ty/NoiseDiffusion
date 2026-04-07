@@ -3,10 +3,33 @@ conda activate control_back
 Lab/NoiseDiffusion/controlnet/ldm/modules/encoders/modules.py改为 
 
 
-
-
-
+# ──────────────────────────────────────────────
+# 原始批量生成 (noise/slerp/noisediffusion 五种方法，全部26类)
+# ──────────────────────────────────────────────
 python controlnet/run_all.py --interpolation all  --gpus 2 3 5 6 7
 
 
+# ──────────────────────────────────────────────
+# 参数扫描 (noisediffusion gamma×clip 网格 + noise/slerp 基线)
+# 默认类别: aircraft car tree spider pumpkin lion_tiger cup
+# gamma = [0, 0.1, sqrt(0.1), sqrt(0.2)]
+# clip  = [2.0, 2.2, 2.4, ..., 3.2, no_clip]
+# ──────────────────────────────────────────────
+
+# 多 GPU 并行扫描（推荐）
+python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --gpus 0 1 2 3 5
+
+# 单 GPU 扫描
+python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --gpus 0
+
+# 断点续跑（跳过已有结果）
+python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --gpus 0 1 2 3 5 --skip_existing
+
+# 自定义类别
+python /data2/home/pengfei/Graduate_experiment/NoiseDiffusion/controlnet/scan_params.py --gpus 0 1 --categories aircraft car tree
+
+
+# ──────────────────────────────────────────────
+# 计算指定类别的均值
+# ──────────────────────────────────────────────
 python calc_summary.py  aircraft car tree spider pumpkin lion_tiger cup

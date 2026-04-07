@@ -77,7 +77,7 @@ class ContextManager:
         self.model.load_state_dict(load_state_dict('/data2/home/pengfei/Lab/NoiseDiffusion/controlnet/models/openpose-sd21.ckpt', location='cuda'))
 
 
-    def interpolate_new(self, img1, img2,  scale_control=1.5, prompt=None, n_prompt=None, min_steps=.3, max_steps=.55, ddim_steps=250,  guide_scale=7.5,  optimize_cond=0,  cond_lr=1e-4, bias=0, ddim_eta=0, out_dir='blend', interpolation_type='noisediffusion'):
+    def interpolate_new(self, img1, img2,  scale_control=1.5, prompt=None, n_prompt=None, min_steps=.3, max_steps=.55, ddim_steps=250,  guide_scale=7.5,  optimize_cond=0,  cond_lr=1e-4, bias=0, ddim_eta=0, out_dir='blend', interpolation_type='noisediffusion', custom_coef=None, custom_gamma=None):
         torch.manual_seed(49)
         if min_steps < 1:
             min_steps = int(ddim_steps * min_steps)
@@ -111,7 +111,7 @@ class ContextManager:
         right_image= ldm.get_first_stage_encoding(ldm.encode_first_stage(img2.float() / 127.5 - 1.0))
 
         
-        kwargs = dict(cond_lr=cond_lr, cond_steps=optimize_cond, prompt=prompt, n_prompt=n_prompt, ddim_steps=ddim_steps, guide_scale=guide_scale, bias=bias, ddim_eta=ddim_eta, scale_control=scale_control, interpolation_type=interpolation_type)
+        kwargs = dict(cond_lr=cond_lr, cond_steps=optimize_cond, prompt=prompt, n_prompt=n_prompt, ddim_steps=ddim_steps, guide_scale=guide_scale, bias=bias, ddim_eta=ddim_eta, scale_control=scale_control, interpolation_type=interpolation_type, custom_coef=custom_coef, custom_gamma=custom_gamma)
         yaml.dump(kwargs, open(f'{out_dir}/args.yaml', 'w'))
         
         cur_step=140
@@ -141,8 +141,10 @@ class ContextManager:
                 noisy_latent = slerp(l1, l2, latent_frac)
 
             if interpolation_type in ("noisediffusion", "noisediffusion_noclip", "noisediffusion_gamma0"):
-                coef=2.0
-                if interpolation_type == "noisediffusion_gamma0":
+                coef = custom_coef if custom_coef is not None else 2.0
+                if custom_gamma is not None:
+                    gamma = custom_gamma
+                elif interpolation_type == "noisediffusion_gamma0":
                     gamma = 0
                 else:
                     gamma = math.sqrt(0.1)
